@@ -35,8 +35,38 @@ def preprocess_image(image_path):
     img.save(TEMP_IMAGE)
     return TEMP_IMAGE
 
-def describe_image(image_path, backend):
+# def describe_image(image_path, backend):
+#     processed = preprocess_image(image_path)
+
+#     cli = LLAMA_CLI_VULKAN if backend == "vulkan" else LLAMA_CLI_CPU
+#     ngl = "999" if backend == "vulkan" else "0"
+
+#     cmd = [
+#         cli,
+#         "-m",       MODEL_PATH,
+#         "--mmproj", MMPROJ,
+#         "--image",  processed,
+#         "-p",       PROMPT,
+#         "-n",       "80",
+#         "--temp",   "0",
+#         "-t",       "16",
+#         "-ngl",     ngl,
+#         "-c",       "4096",
+#     ]
+
+#     result = subprocess.run(cmd, capture_output=True, text=True)
+
+#     # Clean up temp file
+#     if os.path.exists(TEMP_IMAGE):
+#         os.remove(TEMP_IMAGE)
+
+#     return result.stdout.strip()
+
+
+def describe_image(image_path, backend, vulkan_device=None):
+    t0 = time.time()
     processed = preprocess_image(image_path)
+    print(f"Preprocess: {time.time()-t0:.2f}s")
 
     cli = LLAMA_CLI_VULKAN if backend == "vulkan" else LLAMA_CLI_CPU
     ngl = "999" if backend == "vulkan" else "0"
@@ -53,10 +83,13 @@ def describe_image(image_path, backend):
         "-ngl",     ngl,
         "-c",       "4096",
     ]
+    if backend == "vulkan" and vulkan_device:
+        cmd += ["--device", vulkan_device]
 
+    t1 = time.time()
     result = subprocess.run(cmd, capture_output=True, text=True)
+    print(f"Inference: {time.time()-t1:.2f}s")
 
-    # Clean up temp file
     if os.path.exists(TEMP_IMAGE):
         os.remove(TEMP_IMAGE)
 
