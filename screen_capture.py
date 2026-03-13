@@ -54,6 +54,9 @@ class ScreenSelector(QWidget):
 
         print("Saved to:", filepath)
 
+        with open("trigger.txt", "w") as f:
+            f.write(filepath)   
+
         QApplication.quit()
 
     def keyPressEvent(self, event):

@@ -1,3 +1,17 @@
-PyQt5
-pillow
+# --- hotkey + screen capture (main.py, screen_capture.py) ---
 keyboard
+PyQt5
+Pillow
+
+# --- inference (inference.py) ---
+# llama-mtmd-cli is a binary, not a pip package
+# download from: https://github.com/ggml-org/llama.cpp/releases
+# models downloaded via:
+huggingface_hub
+
+# --- tts (tts.py) ---
+# uses OS-native speech (PowerShell on Windows, espeak on Linux, say on macOS)
+# no pip packages required for TTS
+
+# --- http between screen_capture and inference ---
+# uses file-based trigger.txt / output.txt — no packages needed
