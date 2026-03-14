@@ -1,4 +1,4 @@
-# Lens 👁️
+# VCLens
 
 > An offline, privacy-first accessibility tool that describes any region of your screen out loud.
 
