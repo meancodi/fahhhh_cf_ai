@@ -1,24 +1,65 @@
-import subprocess, sys
+# import os, sys, subprocess, time
 
-# Set to "Vulkan0" for RTX, "Vulkan1" for iGPU, None for auto
-VULKAN_DEVICE = "Vulkan0"
+# BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-inf_args = [sys.executable, "inference.py", "--vulkan"]
-if VULKAN_DEVICE:
-    inf_args += ["--device", VULKAN_DEVICE]
+# def run(script, args=None):
+#     path = os.path.join(BASE_DIR, script)
+#     return subprocess.Popen([sys.executable, path] + (args or []))
 
-procs = [
-    subprocess.Popen([sys.executable, "main.py"]),
-    subprocess.Popen([sys.executable, "tts.py"]),
-    subprocess.Popen(inf_args),
-]
+# # start all three
+# p1 = run("tts.py")
+# p2 = run("main.py")
+# p3 = run("inference.py", ["--vulkan", "--device", "Vulkan0"])
 
-print("All processes started. Press Ctrl+C to stop.\n")
+# print("Running. Press Ctrl+C to stop.")
+
+# try:
+#     while True:
+#         time.sleep(1)
+# except KeyboardInterrupt:
+#     print("\nStopping...")
+#     for p in [p1, p2, p3]:
+#         try:
+#             p.terminate()
+#         except:
+#             pass
+
+import os, sys, subprocess, time
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+def run(script, args=None):
+    path = os.path.join(BASE_DIR, script)
+    return subprocess.Popen([sys.executable, path] + (args or []))
+
+# ── device selection ───────────────────────────────────────────────────────
+print("Select backend:")
+print("  1. Vulkan - RTX (fastest)")
+print("  2. Vulkan - iGPU")
+print("  3. CPU")
+choice = input("Enter 1, 2 or 3 [default: 1]: ").strip() or "1"
+
+if choice == "1":
+    inf_args = ["--vulkan", "--device", "Vulkan0"]
+elif choice == "2":
+    inf_args = ["--vulkan", "--device", "Vulkan1"]
+else:
+    inf_args = ["--cpu"]
+
+# ── launch ─────────────────────────────────────────────────────────────────
+p1 = run("tts.py")
+p2 = run("main.py")
+p3 = run("inference.py", inf_args)
+
+print("\nRunning. Press Ctrl+C to stop.")
 
 try:
-    for p in procs:
-        p.wait()
+    while True:
+        time.sleep(1)
 except KeyboardInterrupt:
     print("\nStopping...")
-    for p in procs:
-        p.terminate()
+    for p in [p1, p2, p3]:
+        try:
+            p.terminate()
+        except:
+            pass

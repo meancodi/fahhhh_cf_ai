@@ -1,1 +1,1 @@
-The image is a screenshot of a computer screen displaying a famous painting titled "The Starry Night" by Vincent van Gogh.
+The screenshot shows a block of Python code with a `try` block that includes a `while` loop with a `KeyboardInterrupt` exception handler, followed by a `for` loop that attempts to terminate processes `p1`, `p2`, and `p3`.
