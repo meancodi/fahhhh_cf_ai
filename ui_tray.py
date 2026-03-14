@@ -1,4 +1,3 @@
-
 # import sys
 # import os
 # import time
@@ -15,6 +14,31 @@
 # TRIGGER_FILE = "trigger.txt"
 # OUTPUT_FILE = "output.txt"
 
+# def detect_backends():
+
+#     cuda_available = os.path.exists("./llama-bin-cuda/llama-mtmd-cli.exe")
+#     vulkan_available = os.path.exists("./llama-bin-vulkan/llama-mtmd-cli.exe")
+
+#     devices = []
+#     fastest = None
+
+#     if cuda_available:
+#         devices.append("CUDA (fastest)")
+#         fastest = "CUDA"
+
+#     if vulkan_available:
+#         if not fastest:
+#             devices.append("Vulkan (fastest)")
+#             fastest = "Vulkan"
+#         else:
+#             devices.append("Vulkan")
+
+#     devices.append("CPU")
+
+#     if not fastest:
+#         fastest = "CPU"
+
+#     return devices, fastest
 
 # class Controller(QWidget):
 
@@ -25,23 +49,18 @@
 #         self.proc_tts = None
 #         self.proc_infer = None
 
-#         self.capture_started = False
 #         self.capture_time = None
+#         self.current_state = "idle"
 
 #         self.init_ui()
 
 #         # auto start system
-#         QTimer.singleShot(400, self.start_system)
+#         QTimer.singleShot(300, self.start_system)
 
-#         # monitor capture start
-#         self.capture_timer = QTimer()
-#         self.capture_timer.timeout.connect(self.check_capture)
-#         self.capture_timer.start(150)
-
-#         # monitor inference output
-#         self.output_timer = QTimer()
-#         self.output_timer.timeout.connect(self.check_output)
-#         self.output_timer.start(200)
+#         # single watcher for system state
+#         self.timer = QTimer()
+#         self.timer.timeout.connect(self.update_state)
+#         self.timer.start(200)
 
 
 #     # ---------------- UI ----------------
@@ -49,38 +68,35 @@
 #     def init_ui(self):
 
 #         self.setWindowTitle("Screen AI")
-#         self.setFixedSize(360,250)
+#         self.setFixedSize(360,260)
 #         self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.Tool)
 
 #         layout = QVBoxLayout()
 
-#         # device selector
 #         row = QHBoxLayout()
-
 #         row.addWidget(QLabel("Device"))
 
+#         devices, fastest = detect_backends()
+
 #         self.backend = QComboBox()
-#         self.backend.addItems(["Vulkan", "CUDA", "CPU"])
+#         self.backend.addItems(devices)
+
+#         self.fastest_backend = fastest
 #         self.backend.currentIndexChanged.connect(self.device_changed)
 
 #         row.addWidget(self.backend)
-
 #         layout.addLayout(row)
 
-#         # status
 #         self.status = QLabel("Starting...")
 #         layout.addWidget(self.status)
 
-#         # inference time
 #         self.time_label = QLabel("Inference time: -")
 #         layout.addWidget(self.time_label)
 
-#         # description
 #         self.text = QTextEdit()
 #         self.text.setReadOnly(True)
 #         layout.addWidget(self.text)
 
-#         # stop button
 #         row2 = QHBoxLayout()
 
 #         self.stop_btn = QPushButton("Stop")
@@ -124,8 +140,7 @@
 
 #         self.proc_infer = subprocess.Popen(inf_cmd)
 
-#         self.status.setText("Ready. Press Alt+Shift+~")
-#         self.time_label.setText("Inference time: -")
+#         self.set_state("ready")
 
 
 #     def stop_system(self):
@@ -136,7 +151,6 @@
 #         self.kill_process(self.proc_tts)
 #         self.kill_process(self.proc_infer)
 
-#         # also stop speech engine
 #         subprocess.run(
 #             ["taskkill", "/F", "/IM", "powershell.exe"],
 #             stdout=subprocess.DEVNULL,
@@ -147,16 +161,10 @@
 #         self.proc_tts = None
 #         self.proc_infer = None
 
-#         self.capture_started = False
-#         self.capture_time = None
+#         self.set_state("stopped")
 
-#         self.status.setText("Stopped")
-
-#         # restart automatically
 #         QTimer.singleShot(600, self.start_system)
 
-
-#     # ---------------- DEVICE CHANGE ----------------
 
 #     def device_changed(self):
 
@@ -169,67 +177,80 @@
 #         self.stop_system()
 
 
-#     # ---------------- CAPTURE DETECTION ----------------
+#     # ---------------- STATE MACHINE ----------------
 
-#     def check_capture(self):
+#     def set_state(self, state):
 
+#         if state == self.current_state:
+#             return
+
+#         self.current_state = state
+
+#         if state == "ready":
+#             self.status.setText("Ready. Press Alt+Shift+~")
+#             self.capture_time = None
+
+#         elif state == "processing":
+#             self.status.setText("Processing...")
+#             self.text.clear()
+#             self.capture_time = time.time()
+
+#         elif state == "speaking":
+#             self.status.setText("Speaking...")
+
+#         elif state == "stopped":
+#             self.status.setText("Stopped")
+
+
+#     # ---------------- STATE WATCHER ----------------
+
+#     def update_state(self):
+
+#         # capture started
 #         if os.path.exists(TRIGGER_FILE):
 
-#             if not self.capture_started:
-
-#                 try:
-
-#                     content = open(TRIGGER_FILE).read().strip()
-
-#                     if content != "CANCELLED":
-
-#                         print("[UI] Capture detected")
-
-#                         self.capture_started = True
-#                         self.capture_time = time.time()
-
-#                         self.text.clear()
-#                         self.status.setText("Processing...")
-
-#                 except:
-#                     pass
-
-
-#     # ---------------- OUTPUT MONITOR ----------------
-
-#     def check_output(self):
-
-#         if os.path.exists(OUTPUT_FILE):
-
 #             try:
+#                 content = open(TRIGGER_FILE).read().strip()
 
-#                 text = open(OUTPUT_FILE).read().strip()
-
-#                 if text:
-
-#                     self.text.setText(text)
-#                     self.status.setText("Speaking...")
-
-#                     if self.capture_time:
-
-#                         elapsed = time.time() - self.capture_time
-#                         self.time_label.setText(
-#                             f"Inference time: {elapsed:.2f} s"
-#                         )
-
-#                     self.capture_started = False
-#                     self.capture_time = None
+#                 if content != "CANCELLED":
+#                     if self.current_state == "ready":
+#                         print("[UI] Capture detected")
+#                         self.set_state("processing")
 
 #             except:
 #                 pass
 
-#         else:
 
-#             if not self.capture_started:
+#         # inference finished
+#         if os.path.exists(OUTPUT_FILE):
 
-#                 if self.status.text() != "Ready. Press Alt+Shift+~":
+#             try:
+#                 text = open(OUTPUT_FILE).read().strip()
 
-#                     self.status.setText("Ready. Press Alt+Shift+~")
+#                 if text:
+
+#                     if self.current_state != "speaking":
+
+#                         print("[UI] Output received")
+
+#                         self.text.setText(text)
+#                         self.set_state("speaking")
+
+#                         if self.capture_time:
+#                             elapsed = time.time() - self.capture_time
+#                             self.time_label.setText(
+#                                 f"Inference time: {elapsed:.2f} s"
+#                             )
+
+#             except:
+#                 pass
+
+
+#         # return to ready after speech
+#         if not os.path.exists(OUTPUT_FILE):
+
+#             if self.current_state == "speaking":
+#                 self.set_state("ready")
 
 
 # # ---------------- MAIN ----------------
@@ -258,6 +279,39 @@ TRIGGER_FILE = "trigger.txt"
 OUTPUT_FILE = "output.txt"
 
 
+# ---------------- BACKEND DETECTION ----------------
+
+def detect_backends():
+
+    cuda_bin = "./llama-bin-cuda/llama-mtmd-cli.exe"
+    vulkan_bin = "./llama-bin-vulkan/llama-mtmd-cli.exe"
+
+    cuda_available = os.path.exists(cuda_bin)
+    vulkan_available = os.path.exists(vulkan_bin)
+
+    devices = []
+    fastest = None
+
+    if cuda_available:
+        devices.append("CUDA (fastest)")
+        fastest = "CUDA"
+
+    if vulkan_available:
+        if fastest:
+            devices.append("Vulkan")
+        else:
+            devices.append("Vulkan (fastest)")
+            fastest = "Vulkan"
+
+    devices.append("CPU")
+
+    if not fastest:
+        fastest = "CPU"
+
+    return devices, fastest
+
+
+# ---------------- UI ----------------
 
 class Controller(QWidget):
 
@@ -271,18 +325,18 @@ class Controller(QWidget):
         self.capture_time = None
         self.current_state = "idle"
 
+        self.devices, self.fastest_backend = detect_backends()
+
         self.init_ui()
 
-        # auto start system
         QTimer.singleShot(300, self.start_system)
 
-        # single watcher for system state
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_state)
         self.timer.start(200)
 
 
-    # ---------------- UI ----------------
+    # ---------------- UI SETUP ----------------
 
     def init_ui(self):
 
@@ -296,11 +350,18 @@ class Controller(QWidget):
         row.addWidget(QLabel("Device"))
 
         self.backend = QComboBox()
-        self.backend.addItems(["Vulkan", "CUDA", "CPU"])
+        self.backend.addItems(self.devices)
         self.backend.currentIndexChanged.connect(self.device_changed)
 
         row.addWidget(self.backend)
+
         layout.addLayout(row)
+
+        # auto select fastest backend
+        for i in range(self.backend.count()):
+            if self.fastest_backend in self.backend.itemText(i):
+                self.backend.setCurrentIndex(i)
+                break
 
         self.status = QLabel("Starting...")
         layout.addWidget(self.status)
@@ -339,20 +400,15 @@ class Controller(QWidget):
 
     def start_system(self):
 
-        backend = self.backend.currentText().lower()
+        backend_text = self.backend.currentText()
+        backend = backend_text.split()[0].lower()
 
         print(f"[UI] Starting system using {backend}")
 
         inf_cmd = [sys.executable, "inference.py", f"--{backend}"]
 
-        self.proc_hotkey = subprocess.Popen(
-            [sys.executable, "main.py"]
-        )
-
-        self.proc_tts = subprocess.Popen(
-            [sys.executable, "tts.py"]
-        )
-
+        self.proc_hotkey = subprocess.Popen([sys.executable, "main.py"])
+        self.proc_tts = subprocess.Popen([sys.executable, "tts.py"])
         self.proc_infer = subprocess.Popen(inf_cmd)
 
         self.set_state("ready")
@@ -461,7 +517,7 @@ class Controller(QWidget):
                 pass
 
 
-        # return to ready after speech
+        # return to ready
         if not os.path.exists(OUTPUT_FILE):
 
             if self.current_state == "speaking":
