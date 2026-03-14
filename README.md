@@ -1,69 +1,106 @@
-# Adaptive Visual Contextualizer
+# Lens 👁️
 
-An accessibility tool that lets visually impaired and neurodivergent users select any region of their screen via a hotkey and receive a spoken natural language description of what's shown — charts, code, UI elements, or any visual content.
+> An offline, privacy-first accessibility tool that describes any region of your screen out loud.
+
+Press a hotkey, draw a box, hear a description. Works on charts, code, UI elements, videos — anything visual that standard screen readers miss.
 
 ---
 
 ## How it works
 
-1. Press `Alt+Shift+~` to trigger the screen selector
-2. Draw a box around any screen region
-3. The region is sent to a local VLM (Qwen2.5-VL-3B) for analysis
-4. A spoken description is read aloud via the OS speech engine
+1. Press **Alt+Shift+~** to activate the region selector
+2. Draw a box around any part of your screen
+3. Lens runs the region through a local Vision Language Model
+4. A spoken description is read aloud instantly
 
-Everything runs locally — no internet required after setup.
+Everything runs on your machine. No internet required after setup. No data leaves your device.
 
 ---
 
-## Project structure
+## Demo
 
-```
-project/
-├── main.py              # global hotkey listener
-├── screen_capture.py    # PyQt5 region selector, writes trigger.txt
-├── inference.py         # VLM inference loop, reads trigger.txt, writes output.txt
-├── tts.py               # TTS loop, reads output.txt and speaks
-├── requirements.txt
-└── models/              # created by model download step (not committed)
-```
+| Capture | Description |
+|---|---|
+| Bar chart | *"The chart shows the number of police officers in Crimsville from 2011 to 2019, with a fluctuating trend peaking around 2014."* |
+| Code editor | *"The screenshot shows a Python function that reads a file from disk and returns its contents as a string."* |
+| Video frame | *"Two people are hugging on a stage under bright lights with a caption visible at the bottom."* |
 
 ---
 
 ## Requirements
 
-### Python dependencies
+- Python 3.10+
+- Windows (Linux and macOS supported with minor changes)
+- A GPU with Vulkan support (Intel, AMD, or NVIDIA) — CPU fallback available
+
+---
+
+## Setup
+
+### 1. Clone the repo
+
+```bash
+git clone https://github.com/yourusername/lens.git
+cd lens
+```
+
+### 2. Create and activate a virtual environment
+
+```bash
+python -m venv venv
+```
+
+On Windows:
+```powershell
+venv\Scripts\activate
+```
+
+On Linux/macOS:
+```bash
+source venv/bin/activate
+```
+
+### 3. Download llama.cpp binaries
+
+Download the appropriate build for your machine from the [llama.cpp releases page](https://github.com/ggml-org/llama.cpp/releases/tag/b8292) and extract into the project root:
+
+| Folder | Download |
+|---|---|
+| `llama-bin-vulkan/` | `llama-b8292-bin-win-vulkan-x64.zip` |
+| `llama-bin-cuda/` | `llama-b8292-bin-win-cuda-12.4-x64.zip` *(optional, NVIDIA only)* |
+| `llama-bin/` | `llama-b8292-bin-win-cpu-x64.zip` *(CPU fallback)* |
+
+On Windows (PowerShell):
+
+```powershell
+# Vulkan (recommended)
+curl -L "https://github.com/ggml-org/llama.cpp/releases/download/b8292/llama-b8292-bin-win-vulkan-x64.zip" -o vulkan.zip
+Expand-Archive vulkan.zip -DestinationPath ./llama-bin-vulkan/
+
+# CPU fallback
+curl -L "https://github.com/ggml-org/llama.cpp/releases/download/b8292/llama-b8292-bin-win-cpu-x64.zip" -o cpu.zip
+Expand-Archive cpu.zip -DestinationPath ./llama-bin/
+
+# CUDA (optional, NVIDIA only)
+curl -L "https://github.com/ggml-org/llama.cpp/releases/download/b8292/llama-b8292-bin-win-cuda-12.4-x64.zip" -o cuda.zip
+Expand-Archive cuda.zip -DestinationPath ./llama-bin-cuda/
+```
+
+### 4. Install Python dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### llama.cpp binaries
-
-Download the appropriate build for your OS from:
-https://github.com/ggml-org/llama.cpp/releases/tag/b8292
-
-| OS | Vulkan (recommended) | CPU fallback |
-|---|---|---|
-| Windows | `llama-b8292-bin-win-vulkan-x64.zip` | `llama-b8292-bin-win-cpu-x64.zip` |
-| Linux | `llama-b8292-bin-ubuntu-vulkan-x64.tar.gz` | `llama-b8292-bin-ubuntu-x64.tar.gz` |
-| macOS (Apple Silicon) | — | `llama-b8292-bin-macos-arm64.tar.gz` |
-| macOS (Intel) | — | `llama-b8292-bin-macos-x64.tar.gz` |
-
-Extract Vulkan build to `./llama-bin-vulkan/` and CPU build to `./llama-bin/`.
-
-> macOS uses Metal automatically — no separate Vulkan binary needed. Use `--cpu` flag which maps to Metal on Mac.
-
-### Linux TTS
+### 5. Download the model
 
 ```bash
-sudo apt install espeak
+pip install -r requirements.txt
 ```
 
-Windows and macOS have speech engines built in — no setup needed.
+### 5. Download the model
 
-### Models
-
-Download Qwen2.5-VL-3B GGUF and mmproj:
+The model is not included in the repo (~2.2GB total). Run these commands to download:
 
 ```bash
 huggingface-cli download ggml-org/Qwen2.5-VL-3B-Instruct-GGUF \
@@ -75,87 +112,99 @@ huggingface-cli download ggml-org/Qwen2.5-VL-3B-Instruct-GGUF \
   --local-dir ./models/qwen2.5-vl-3b
 ```
 
-Total download size: ~2.2 GB
+On Windows (PowerShell):
+
+```powershell
+huggingface-cli download ggml-org/Qwen2.5-VL-3B-Instruct-GGUF `
+  --include "Qwen2.5-VL-3B-Instruct-Q4_K_M.gguf" `
+  --local-dir ./models/qwen2.5-vl-3b
+
+huggingface-cli download ggml-org/Qwen2.5-VL-3B-Instruct-GGUF `
+  --include "mmproj-Qwen2.5-VL-3B-Instruct-Q8_0.gguf" `
+  --local-dir ./models/qwen2.5-vl-3b
+```
+
+### 6. Run
+
+```bash
+python launch.py
+```
+
+You will be prompted to select a backend:
+
+```
+Select backend:
+  1. Vulkan - RTX (fastest)
+  2. Vulkan - iGPU
+  3. CPU
+Enter 1, 2 or 3 [default: 1]:
+```
+
+Press **Alt+Shift+~** to start capturing.
 
 ---
 
-## Running
+## Project structure
 
-Open three terminals:
-
-```bash
-# Terminal 1 — inference engine (choose backend)
-python inference.py --vulkan    # recommended: uses iGPU/dGPU via Vulkan
-python inference.py --cpu       # fallback: CPU only
-
-# Terminal 2 — TTS listener
-python tts.py
-
-# Terminal 3 — hotkey listener
-python main.py
 ```
-
-Then press `Alt+Shift+~` and draw a box on screen.
+lens/
+├── launch.py            # entry point — starts all processes
+├── inference.py         # VLM inference loop
+├── tts.py               # text-to-speech listener
+├── main.py              # global hotkey listener
+├── screen_capture.py    # screen region selector (PyQt5)
+├── ui_tray.py           # optional GUI (PyQt5)
+├── requirements.txt
+├── llama-bin/           # llama.cpp CPU binaries (included)
+├── llama-bin-vulkan/    # llama.cpp Vulkan binaries (included)
+└── models/              # downloaded separately — not in repo
+    └── qwen2.5-vl-3b/
+        ├── Qwen2.5-VL-3B-Instruct-Q4_K_M.gguf
+        └── mmproj-Qwen2.5-VL-3B-Instruct-Q8_0.gguf
+```
 
 ---
 
 ## Performance
 
-Tested on Intel i7-13700HX:
+Tested on Intel i7-13700HX + NVIDIA RTX 4060 Laptop:
 
-| Backend | Inference time |
+| Backend | Latency |
 |---|---|
-| Vulkan (iGPU) | ~6–7s |
-| CPU only | ~13s |
-
-The model stays loaded between captures — only the first capture after startup pays the full load time.
+| Vulkan (RTX 4060) | 4–6s |
+| Vulkan (Intel Iris Xe iGPU) | 14–17s |
+| CPU only | 13–20s |
 
 ---
 
 ## Model
 
-**Qwen2.5-VL-3B-Instruct Q4_K_M** via llama.cpp
+**Qwen2.5-VL-3B-Instruct** quantized to Q4_K_M via llama.cpp.
 
-- 4-bit quantized — ~2GB on disk, ~1.8GB RAM
-- Handles charts, graphs, code, UI elements, and mixed content
-- mmproj Q8_0 — quantized vision encoder for faster image processing
-- Runs on any CPU with AVX2 (Intel 6th gen+ / AMD Ryzen 1st gen+)
-
-### Quantization methods used
-
-| Component | Method | Effect |
-|---|---|---|
-| Language model | Q4_K_M (4-bit, k-quant) | 70% size reduction, ~95% quality retained |
-| Vision encoder (mmproj) | Q8_0 (8-bit) | 50% size reduction, ~99% quality retained |
-
-Q4_K_M uses a mixed quantization strategy where attention and feed-forward layers are quantized at different bit depths based on sensitivity — more important layers keep higher precision. This gives better quality than uniform Q4 at the same file size.
+- 4-bit k-quant with mixed precision — attention layers at higher precision than feed-forward layers
+- Vision encoder (mmproj) at Q8_0 for accuracy
+- Runs on any CPU with AVX2 — Intel 6th gen+ or AMD Ryzen 1st gen+
+- ~2.2GB total on disk, ~1.8GB RAM at runtime
 
 ---
 
-## Accessibility note
+## Accessibility use case
 
-This tool is designed for:
-- Visually impaired users who need screen reader support for visual content
-- Neurodivergent users who benefit from audio descriptions of complex visual layouts
-- Any user who needs on-demand narration of charts, dashboards, or unfamiliar UI
-
-Standard screen readers describe text but fail on images, charts, and unlabeled UI elements. This tool fills that gap with natural language descriptions read aloud on demand.
+Standard screen readers describe text but are blind to visual content. Lens fills that gap — on demand, offline, for any visual element on screen. Designed for visually impaired users and neurodivergent users who benefit from audio descriptions of charts, diagrams, and complex UI layouts.
 
 ---
 
-## .gitignore
+## Requirements.txt
 
 ```
-models/*
-!models/.gitkeep
-llama*/
-temp_capture.png
-temp_speech.txt
-trigger.txt
-output.txt
-screenshots/
-__pycache__/
-*.pyc
-venv/
-.env
+keyboard
+PyQt5
+Pillow
+huggingface_hub
 ```
+
+---
+
+## License
+
+MIT
